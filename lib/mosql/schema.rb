@@ -42,7 +42,17 @@ module MoSQL
       out = spec.dup
       out[:columns] = to_array(spec[:columns])
       check_columns!(ns, out)
+      add_created(out) if out[:meta][:created_at]
       out
+    end
+
+    def add_created(spec)
+      spec[:columns] << {
+        :source => '_id',
+        :type   => 'TIMESTAMP',
+        :name   => 'createdAt',
+        :key    => false
+      }
     end
 
     def initialize(map)
@@ -63,7 +73,7 @@ module MoSQL
           collection[:columns].each do |col|
             column col[:name], col[:type]
 
-            if col[:source].to_sym == :_id
+            if col[:source].to_sym == :_id && col[:key] != false
               primary_key [col[:name].to_sym]
             end
           end
@@ -114,15 +124,24 @@ module MoSQL
 
       obj = obj.dup
       row = []
+      sources = {}
       schema[:columns].each do |col|
 
         source = col[:source]
         type = col[:type]
 
-        v = fetch_and_delete_dotted(obj, source)
+        unless sources.include?(source)
+          sources[source] = fetch_and_delete_dotted(obj, source)
+        end
+        v = sources[source]
+
         case v
         when BSON::Binary, BSON::ObjectId
-          v = v.to_s
+          if [:DATE, :TIMESTAMP, :TIME].include? type.to_sym
+            v = Time.at v.to_s[0...8].to_i(16)
+          else
+            v = v.to_s
+          end
         end
         row << v
       end
@@ -130,8 +149,9 @@ module MoSQL
       if schema[:meta][:extra_props]
         # Kludgily delete binary blobs from _extra_props -- they may
         # contain invalid UTF-8, which to_json will not properly encode.
+        sources = schema[:columns].map{|c| c[:source]}.uniq
         obj.each do |k,v|
-          obj.delete(k) if v.is_a?(BSON::Binary)
+          obj.delete(k) if v.is_a?(BSON::Binary) or sources.include?(k)
         end
         row << obj.to_json
       end
