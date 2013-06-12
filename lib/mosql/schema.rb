@@ -43,6 +43,12 @@ module MoSQL
       out[:columns] = to_array(spec[:columns])
       check_columns!(ns, out)
       add_created(out) if out[:meta][:created_at]
+
+      out[:related] ||= []
+      out[:related].each do |reltable, details|
+        out[:related][reltable] = to_array(details)
+      end
+
       out
     end
 
@@ -81,12 +87,30 @@ module MoSQL
             column '_extra_props', 'TEXT'
           end
         end
+
+        # Add relational tables
+        collection[:related].each do |reltable, details|
+          db.send(clobber ? :create_table! : :create_table?, reltable) do
+            primary_key :__id
+
+            details.each do |col|
+              column col[:name], col[:type]
+            end
+          end
+        end
       end
     end
 
     def find_ns(ns)
-      db, collection = ns.split(".")
+      db, collection, relation = ns.split(".")
       schema = (@map[db] || {})[collection]
+      if schema && relation
+        schema = {
+          :columns => schema[:related][relation],
+          :meta => { :table => relation }
+        }
+      end
+
       if schema.nil?
         log.debug("No mapping for ns: #{ns}")
         return nil
@@ -101,22 +125,25 @@ module MoSQL
     end
 
     def fetch_and_delete_dotted(obj, dotted)
-      pieces = dotted.split(".")
-      breadcrumbs = []
-      while pieces.length > 1
-        key = pieces.shift
-        breadcrumbs << [obj, key]
-        obj = obj[key]
-        return nil unless obj.is_a?(Hash)
+      key, rest = dotted.split(".", 2)
+
+      if key.end_with?("[]")
+        values = obj[key.slice(0...-2)] || []
+        raise "Expected: Array for piece #{ key }, got #{ values.class }" unless values.is_a?(Array)
+
+        return values.map do |v|
+          if rest
+            fetch_and_delete_dotted(v, rest)
+          else
+            v
+          end
+        end
       end
 
-      val = obj.delete(pieces.first)
+      # Base case
+      return obj[key] unless rest
 
-      breadcrumbs.reverse.each do |obj, key|
-        obj.delete(key) if obj[key].empty?
-      end
-
-      val
+      fetch_and_delete_dotted(obj[key], rest)
     end
 
     def transform(ns, obj, schema=nil)
@@ -158,7 +185,12 @@ module MoSQL
 
       log.debug { "Transformed: #{row.inspect}" }
 
-      row
+      depth = row.select {|r| r.is_a? Array}.map {|r| [r].flatten.length }.max
+      return row unless depth
+
+      # Convert row [a, [b, c], d] into [[a, b, d], [a, c, d]]
+      row.map! {|r| [r].flatten.cycle.take(depth)}
+      row.first.zip(*row.drop(1))
     end
 
     def all_columns(schema)
@@ -220,7 +252,7 @@ module MoSQL
     end
 
     def primary_sql_key_for_ns(ns)
-      find_ns!(ns)[:columns].find {|c| c[:source] == '_id'}[:name]
+      find_ns!(ns)[:columns].find {|c| c[:source] == '_id' && c[:key] != false}[:name]
     end
   end
 end
