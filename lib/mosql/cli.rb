@@ -141,6 +141,7 @@ module MoSQL
 
       if options[:reimport] || tailer.read_timestamp.seconds == 0
         initial_import
+        log.info("Initial import complete.")
       end
 
       unless options[:skip_tail]
@@ -210,6 +211,8 @@ module MoSQL
         end
       end
 
+      @schemamap.setup_indexes(@sql.db)
+
       tailer.write_timestamp(start_ts) unless options[:skip_tail]
     end
 
@@ -226,7 +229,7 @@ module MoSQL
           bulk_upsert(table, local_ns, queue)
         end
         elapsed = Time.now - start
-        log.info("Imported #{queue.total} rows (#{elapsed}s, #{sql_time}s SQL)...")
+        log.info("Imported #{queue.total} rows into #{table_name} (#{elapsed}s, #{sql_time}s SQL)...")
         exit(0) if @done
       end)
 

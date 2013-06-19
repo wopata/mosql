@@ -42,6 +42,10 @@ module MoSQL
       out = spec.dup
       out[:columns] = to_array(spec[:columns])
       check_columns!(ns, out)
+
+      out[:meta][:indexes] ||= []
+      out[:meta][:indexes] << '_id'
+
       add_created(out) if out[:meta][:created_at]
 
       out[:related] ||= []
@@ -59,6 +63,7 @@ module MoSQL
         :name   => 'created_at',
         :key    => false
       }
+      spec[:meta][:indexes] << 'created_at'
     end
 
     def initialize(map)
@@ -90,11 +95,34 @@ module MoSQL
 
         # Add relational tables
         collection[:related].each do |reltable, details|
+          log.info("Creating table '#{reltable}'...")
           db.send(clobber ? :create_table! : :create_table?, reltable) do
             primary_key :__id
 
             details.each do |col|
               column col[:name], col[:type]
+            end
+          end
+        end
+      end
+    end
+
+    def setup_indexes(db)
+      @map.values.map(&:values).flatten.each do |collection|
+        meta = collection[:meta]
+
+        log.info("Creating indexes on '#{meta[:table]}'...")
+        collection[:columns].each do |col|
+          if meta[:indexes].include?(col[:source])
+            db.add_index meta[:table], col[:name].to_sym
+          end
+        end
+
+        collection[:related].each do |reltable, details|
+          log.info("Creating indexes on '#{reltable}'...")
+          details.each do |col|
+            if meta[:indexes].include?(col[:source])
+              db.add_index reltable, col[:name].to_sym
             end
           end
         end
