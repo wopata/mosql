@@ -44,7 +44,7 @@ module MoSQL
       def <<(obj)
         super
         @total += 1
-        flush if length > @capacity
+        flush if length >= @capacity
       end
 
       def flush
