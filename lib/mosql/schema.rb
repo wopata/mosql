@@ -56,7 +56,7 @@ module MoSQL
       spec[:columns] << {
         :source => '_id',
         :type   => 'TIMESTAMP',
-        :name   => 'createdAt',
+        :name   => 'created_at',
         :key    => false
       }
     end
