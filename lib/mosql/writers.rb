@@ -49,6 +49,7 @@ module MoSQL
 
       def flush
         @flush.call(@table, @ns, self) if length > 0
+        self.clear
       end
     end
   end

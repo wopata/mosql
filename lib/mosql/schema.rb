@@ -126,6 +126,7 @@ module MoSQL
 
     def fetch_and_delete_dotted(obj, dotted)
       key, rest = dotted.split(".", 2)
+      obj ||= {}
 
       if key.end_with?("[]")
         values = obj[key.slice(0...-2)] || []
