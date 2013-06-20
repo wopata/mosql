@@ -229,7 +229,7 @@ module MoSQL
           bulk_upsert(table, local_ns, queue)
         end
         elapsed = Time.now - start
-        log.info("Imported #{queue.total} rows into #{table_name} (#{elapsed}s, #{sql_time}s SQL)...")
+        log.info("Imported %d rows into '%s' (%.1fs, %.1fs SQL)..." % [queue.total, table_name, elapsed, sql_time])
         exit(0) if @done
       end)
 
