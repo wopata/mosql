@@ -114,7 +114,7 @@ module MoSQL
         log.info("Creating indexes on '#{meta[:table]}'...")
         collection[:columns].each do |col|
           if meta[:indexes].include?(col[:source])
-            db.add_index meta[:table], col[:name].to_sym
+            add_index db, meta[:table], col[:name]
           end
         end
 
@@ -122,11 +122,18 @@ module MoSQL
           log.info("Creating indexes on '#{reltable}'...")
           details.each do |col|
             if meta[:indexes].include?(col[:source])
-              db.add_index reltable, col[:name].to_sym
+              add_index db, reltable, col[:name]
             end
           end
         end
       end
+    end
+
+    def add_index(db, table, column)
+      db.add_index table, column.to_sym
+    rescue Sequel::DatabaseError
+      # If the indexes are being created by another process, we can just skip
+      return
     end
 
     def find_ns(ns)
