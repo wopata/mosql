@@ -114,7 +114,7 @@ module MoSQL
         log.info("Creating indexes on '#{meta[:table]}'...")
         collection[:columns].each do |col|
           if meta[:indexes].include?(col[:source])
-            add_index db, meta[:table], col[:name]
+            add_index db, meta[:table], col[:name], :concurrently => true
           end
         end
 
@@ -122,15 +122,15 @@ module MoSQL
           log.info("Creating indexes on '#{reltable}'...")
           details.each do |col|
             if meta[:indexes].include?(col[:source])
-              add_index db, reltable, col[:name]
+              add_index db, reltable, col[:name], :concurrently => true
             end
           end
         end
       end
     end
 
-    def add_index(db, table, column)
-      db.add_index table, column.to_sym
+    def add_index(db, table, column, opts={})
+      db.add_index table, column.to_sym, opts
     rescue Sequel::DatabaseError
       # If the indexes are being created by another process, we can just skip
       return
