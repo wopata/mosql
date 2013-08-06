@@ -37,7 +37,8 @@ module MoSQL
         :collections => 'collections.yml',
         :sql    => 'postgres:///',
         :mongo  => 'mongodb://localhost',
-        :verbose => 0
+        :verbose => 0,
+        :shards => 1
       }
       optparse = OptionParser.new do |opts|
         opts.banner = "Usage: #{$0} [options] "
@@ -90,6 +91,10 @@ module MoSQL
         opts.on("--no-drop-tables", "Don't drop the table if it exists during the initial import") do
           @options[:no_drop_tables] = true
         end
+
+        opts.on("--shards [shards]", "Expect the given number of mosql processes to finish before creating indexes") do |shards|
+          @options[:shards] = shards
+        end
       end
 
       optparse.parse!(@args)
@@ -134,9 +139,9 @@ module MoSQL
       connect_sql
       connect_mongo
 
-      metadata_table = MoSQL::Tailer.create_table(@sql.db, 'mosql_tailers')
+      @metadata_table = MoSQL::Tailer.create_table(@sql.db, 'mosql_tailers')
 
-      @tailer = MoSQL::Tailer.new([@mongo], :existing, metadata_table,
+      @tailer = MoSQL::Tailer.new([@mongo], :existing, @metadata_table,
                                   :service => options[:service])
 
       if options[:reimport] || tailer.read_timestamp.seconds == 0
@@ -211,7 +216,7 @@ module MoSQL
         end
       end
 
-      @schemamap.setup_indexes(@sql.db)
+      check_index_creation
 
       tailer.write_timestamp(start_ts) unless options[:skip_tail]
     end
@@ -254,6 +259,26 @@ module MoSQL
       end
 
       writers.flush
+    end
+
+    def check_index_creation
+      identity = rand(36**8).to_s(36)
+
+      add_identity(identity)
+      last_identity = last_identity_of(@options[:shards])
+      if last_identity == identity
+        @schemamap.setup_indexes(@sql.db)
+      else
+        log.info("Skipping index creation because last identity found was '#{ last_identity }' and not '#{ identity }'")
+      end
+    end
+
+    def add_identity(identity)
+      @metadata_table.insert(:service => "finished-#{ identity }", :timestamp => 'extract(epoch from now())'.lit)
+    end
+
+    def last_identity_of(count)
+      @metadata_table.grep(:service, "finished-%").order(:timestamp).first(count)[count - 1][:service].split('-', 2).last rescue nil
     end
 
     def optail
