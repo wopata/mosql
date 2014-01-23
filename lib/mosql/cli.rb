@@ -93,7 +93,7 @@ module MoSQL
         end
 
         opts.on("--shards [shards]", "Expect the given number of mosql processes to finish before creating indexes") do |shards|
-          @options[:shards] = shards
+          @options[:shards] = shards.to_i
         end
       end
 
