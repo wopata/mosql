@@ -175,6 +175,19 @@ module MoSQL
       fetch_and_delete_dotted(obj[key], rest)
     end
 
+    def value_transform(value, type)
+      case value
+      when BSON::Binary, BSON::ObjectId
+        if [:DATE, :TIMESTAMP, :TIME].include? type.to_sym
+          Time.at value.to_s[0...8].to_i(16)
+        else
+          value.to_s
+        end
+      when Array
+        value.map {|v| value_transform(v, type) }
+      end
+    end
+
     def transform(ns, obj, schema=nil)
       schema ||= find_ns!(ns)
 
@@ -191,15 +204,7 @@ module MoSQL
         end
         v = sources[source]
 
-        case v
-        when BSON::Binary, BSON::ObjectId
-          if [:DATE, :TIMESTAMP, :TIME].include? type.to_sym
-            v = Time.at v.to_s[0...8].to_i(16)
-          else
-            v = v.to_s
-          end
-        end
-        row << v
+        row << value_transform(v, type)
       end
 
       if schema[:meta][:extra_props]
