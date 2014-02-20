@@ -2,6 +2,7 @@ require 'mosql'
 require 'optparse'
 require 'yaml'
 require 'logger'
+require 'socket'
 
 module MoSQL
   class CLI
@@ -263,7 +264,7 @@ module MoSQL
     end
 
     def check_index_creation
-      identity = rand(36**8).to_s(36)
+      identity = Socket.gethostname
 
       add_identity(identity)
       last_identity = last_identity_of(@options[:shards])
@@ -275,11 +276,11 @@ module MoSQL
     end
 
     def add_identity(identity)
-      @metadata_table.insert(:service => "finished-#{ identity }", :timestamp => 'extract(epoch from now())'.lit)
+      @metadata_table.insert(:service => identity, :timestamp => 'extract(epoch from now())'.lit)
     end
 
     def last_identity_of(count)
-      @metadata_table.grep(:service, "finished-%").order(:timestamp).first(count)[count - 1][:service].split('-', 2).last rescue nil
+      @metadata_table.order(:timestamp).first(count)[count - 1][:service] rescue nil
     end
 
     def optail
