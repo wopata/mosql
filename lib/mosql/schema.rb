@@ -114,7 +114,7 @@ module MoSQL
         log.info("Creating indexes on '#{meta[:table]}'...")
         collection[:columns].each do |col|
           if meta[:indexes].include?(col[:source])
-            db.add_index meta[:table], col[:name].to_sym, :concurrently => true
+            db.add_index meta[:table], col[:name].to_sym, :concurrently => false
           end
         end
 
@@ -122,7 +122,7 @@ module MoSQL
           log.info("Creating indexes on '#{reltable}'...")
           details.each do |col|
             if meta[:indexes].include?(col[:source])
-              db.add_index reltable, col[:name].to_sym, :concurrently => true
+              db.add_index reltable, col[:name].to_sym, :concurrently => false
             end
           end
         end
