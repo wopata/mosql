@@ -185,6 +185,8 @@ module MoSQL
         end
       when Array
         value.map {|v| value_transform(v, type) }
+      else
+        value
       end
     end
 
