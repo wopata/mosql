@@ -267,7 +267,7 @@ module MoSQL
       when false
         'f'
       else
-        val.to_s.gsub(/([\\\t\n\r])/, '\\\\\\1')
+        val.to_s.encode('UTF-8', 'UTF-8', :invalid => :replace).gsub(/([\\\t\n\r])/, '\\\\\\1')
       end
     end
 
