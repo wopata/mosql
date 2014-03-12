@@ -276,7 +276,10 @@ module MoSQL
     end
 
     def add_identity(identity)
-      @metadata_table.insert(:service => identity, :timestamp => 'extract(epoch from now())'.lit)
+      ts = Sequel.lit('extract(epoch from now())')
+      @metadata_table.insert(:service => identity, :timestamp => ts)
+    rescue Sequel::UniqueConstraintViolation
+      @metadata_table.where(service: identity).update(timestamp: ts)
     end
 
     def last_identity_of(count)
