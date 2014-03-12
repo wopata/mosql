@@ -1,2 +1,4 @@
 collections.yml
 /.bundle/
+.*.sw?
+.sw?
