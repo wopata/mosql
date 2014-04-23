@@ -139,9 +139,13 @@ module MoSQL
         }
       end
 
-      if schema.nil?
-        log.debug("No mapping for ns: #{ns}")
-        return nil
+      unless schema
+        db, collection = ns.split(".", 2)
+        schema = (@map[db] || {})[collection]
+        unless schema
+          log.debug("No mapping for ns: #{ns}")
+          return nil
+        end
       end
       schema
     end
