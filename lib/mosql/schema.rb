@@ -129,25 +129,24 @@ module MoSQL
       end
     end
 
-    def find_ns(ns)
-      db, collection, relation = ns.split(".")
-      schema = (@map[db] || {})[collection]
-      if schema && relation
-        schema = {
-          :columns => schema[:related][relation],
-          :meta => { :table => relation }
-        }
-      end
+    def find_ns ns
+      coll, rel = ns.split('.'), []
+      db = @map[coll.shift] || {}
 
-      unless schema
-        db, collection = ns.split(".", 2)
-        schema = (@map[db] || {})[collection]
-        unless schema
-          log.debug("No mapping for ns: #{ns}")
-          return nil
+      if schema = db[coll.join('.')]
+        schema
+      else
+        while i = coll.pop
+          rel.unshift(i)
+          if schema = db[coll.join('.')]
+            rel = rel.join('.')
+            return(
+              columns: schema[:related][rel],
+              meta: { table: rel })
         end
+        log.debug("No mapping for ns: #{ns}")
+        nil
       end
-      schema
     end
 
     def find_ns!(ns)
