@@ -143,6 +143,7 @@ module MoSQL
             return({
               columns: schema[:related][rel],
               meta: { table: rel }})
+          end
         end
         log.debug("No mapping for ns: #{ns}")
         nil
