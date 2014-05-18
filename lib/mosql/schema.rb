@@ -140,9 +140,9 @@ module MoSQL
           rel.unshift(i)
           if schema = db[coll.join('.')]
             rel = rel.join('.')
-            return(
+            return({
               columns: schema[:related][rel],
-              meta: { table: rel })
+              meta: { table: rel }})
         end
         log.debug("No mapping for ns: #{ns}")
         nil
