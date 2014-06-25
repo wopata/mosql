@@ -303,6 +303,7 @@ module MoSQL
       obj             = collection_for_ns(ns).find_one({:_id => _id})
       if obj
         @sql.upsert_ns(ns, obj)
+        @sql.sync_related_ns(ns, obj)
       else
         @sql.table_for_ns(ns).where(primary_sql_key.to_sym => sqlid).delete()
       end
@@ -330,7 +331,9 @@ module MoSQL
         if collection_name == 'system.indexes'
           log.info("Skipping index update: #{op.inspect}")
         else
-          @sql.upsert_ns(ns, op['o'])
+          obj = op['o']
+          @sql.upsert_ns(ns, obj)
+          @sql.sync_related_ns(ns, obj)
         end
       when 'u'
         selector = op['o2']
@@ -347,12 +350,15 @@ module MoSQL
           # update.
           update = { '_id' => selector['_id'] }.merge(update)
           @sql.upsert_ns(ns, update)
+          @sql.sync_related_ns(ns, update)
         end
       when 'd'
         if options[:ignore_delete]
           log.debug("Ignoring delete op on #{ns} as instructed.")
         else
-          @sql.delete_ns(ns, op['o'])
+          obj = op['o']
+          @sql.delete_ns(ns, obj)
+          @sql.delete_related_ns(ns, obj)
         end
       else
         log.info("Skipping unknown op #{op.inspect}")

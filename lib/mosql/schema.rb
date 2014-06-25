@@ -194,6 +194,14 @@ module MoSQL
       end
     end
 
+    def foreign_keys(ns)
+      keys = []
+      find_ns!(ns)[:columns].each do |col|
+        keys << [col[:source], col[:name]] unless col[:source].index('[]')
+      end
+      keys
+    end
+
     def transform(ns, obj, schema=nil)
       schema ||= find_ns!(ns)
 

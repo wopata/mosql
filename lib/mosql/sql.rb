@@ -26,11 +26,16 @@ module MoSQL
     end
 
     def transform_one_ns(ns, obj)
-      h = {}
       cols = @schema.all_columns(@schema.find_ns(ns))
       row  = @schema.transform(ns, obj)
-      cols.zip(row).each { |k,v| h[k] = v }
-      h
+      Hash[cols.zip(row)]
+    end
+
+    def transform_related_ns(ns, obj)
+      cols = @schema.all_columns(@schema.find_ns(ns))
+      @schema.transform(ns, obj).map do |row|
+        Hash[cols.zip(row)]
+      end
     end
 
     def upsert_ns(ns, obj)
@@ -38,15 +43,56 @@ module MoSQL
       upsert(table_for_ns(ns), @schema.primary_sql_key_for_ns(ns), h)
     end
 
-    # obj must contain an _id field. All other fields will be ignored.
+    def foreign_query_ns(ns, obj)
+      query = {}
+      @schema.foreign_keys(ns).each do |source,key|
+        query[key.intern] = obj[source]
+      end
+      query
+    end
+
+    def _sync_related_ns(rns, obj)
+      tbl = table_for_ns(rns)
+      ids = tbl.where(foreign_query_ns(rns, obj)).order(:__id).map { |i| i[:__id] }
+      transform_related_ns(rns, obj).each do |h|
+        if id = ids.shift
+          # There's something to update
+          tbl.where(__id: id).update(h)
+        else
+          # It's an insert
+          tbl.insert(h)
+        end
+      end
+      tbl.where('__id IN ?', ids).delete if ids.any?
+    end
+    private :_sync_related_ns
+
+    def sync_related_ns(ns, obj)
+      if rel = @schema.find_ns(ns)[:related]
+        rel.keys.each do |rns|
+          _sync_related_ns "#{ns}.#{rns}", obj
+        end
+      end
+    end
+
+    # obj must contain an _id field. All other fields will be ignored.# {{{
     def delete_ns(ns, obj)
       primary_sql_key = @schema.primary_sql_key_for_ns(ns)
       h = transform_one_ns(ns, obj)
       raise "No #{primary_sql_key} found in transform of #{obj.inspect}" if h[primary_sql_key].nil?
       table_for_ns(ns).where(primary_sql_key.to_sym => h[primary_sql_key]).delete
+    end# }}}
+
+    def delete_related_ns(ns, obj)
+      if rel = @schema.find_ns(ns)[:related]
+        rel.keys.each do |rns|
+          rns = "#{ns}.#{rns}"
+          table_for_ns(rns).where(foreign_query_ns(rns, obj)).delete
+        end
+      end
     end
 
-    def upsert(table, table_primary_key, item)
+    def upsert(table, table_primary_key, item)# {{{
       begin
         upsert!(table, table_primary_key, item)
       rescue Sequel::DatabaseError => e
@@ -57,7 +103,7 @@ module MoSQL
           raise e
         end
       end
-    end
+    end# }}}
 
     def upsert!(table, table_primary_key, item)
       rows = table.where(table_primary_key.to_sym => item[table_primary_key]).update(item)
