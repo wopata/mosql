@@ -68,7 +68,8 @@ module MoSQL
     private :_sync_related_ns
 
     def sync_related_ns(ns, obj)
-      if rel = @schema.find_ns(ns)[:related] && rel.is_a?(Hash)
+      rel = @schema.find_ns(ns)[:related]
+      if rel.is_a? Hash
         rel.keys.each do |rns|
           _sync_related_ns "#{ns}.#{rns}", obj
         end
