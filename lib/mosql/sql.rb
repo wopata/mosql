@@ -85,7 +85,8 @@ module MoSQL
     end# }}}
 
     def delete_related_ns(ns, obj)
-      if rel = @schema.find_ns(ns)[:related]
+      rel = @schema.find_ns(ns)[:related]
+      if rel.is_a? Hash
         rel.keys.each do |rns|
           rns = "#{ns}.#{rns}"
           table_for_ns(rns).where(foreign_query_ns(rns, obj)).delete
